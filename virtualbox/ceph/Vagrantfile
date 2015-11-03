@@ -15,7 +15,7 @@ Vagrant.configure("2") do |config|
   admin.vm.network :private_network, ip: "192.168.245.10"
   admin.vm.hostname = 'ceph-admin'
   admin.vm.provision "shell", inline: "echo 'nameserver 8.8.8.8' > /etc/resolv.conf; domainname ceph-admin.local", privileged: true
-  admin.vm.provision "shell", inline: "echo -e '192.168.245.10 ceph-admin\n192.168.245.11 ceph-client\n192.168.245.12 ceph-server-12\n192.168.245.13 ceph-server-13\n192.168.245.14 ceph-server-14' >>/etc/hosts", privileged: true
+  admin.vm.provision "shell", inline: "echo -e '192.168.245.10 ceph-admin\n192.168.245.11 ceph-client\n192.168.245.12 ceph-server-12\n192.168.245.13 ceph-server-13\n192.168.245.14 ceph-server-14\n192.168.245.15 ceph-server-15\n192.168.245.16 ceph-server-16' >>/etc/hosts", privileged: true
   admin.vm.provision "shell", inline: "useradd ceph && echo 'ceph\nceph' | passwd ceph && adduser ceph sudo && mkdir -p /home/ceph/.ssh && chown -R ceph:ceph /home/ceph", privileged: true
   admin.vm.provision "shell", inline: "wget -q -O- 'https://download.ceph.com/keys/release.asc' | sudo apt-key add -", privileged: true
   admin.vm.provision "shell", inline: "echo deb http://ceph.com/debian-firefly/ $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/ceph.list", privileged: true
@@ -23,27 +23,49 @@ Vagrant.configure("2") do |config|
   admin.vm.provision "shell", inline: "echo 'ceph ALL = (root) NOPASSWD:ALL' | tee /etc/sudoers.d/ceph", privileged: true 
   admin.vm.provision "shell", inline: "chmod 0440 /etc/sudoers.d/ceph && echo 'Defaults:ceph !requiretty' >> /etc/sudoers.d/ceph", privileged: true
   admin.vm.provision "shell", :inline => $copy_public_key
+  admin.vm.provision "shell", inline: "mkdir -p /var/run/ceph && chown ceph:ceph /var/run/ceph"
  end
  
  config.vm.define "ceph-client" do |client|
   client.vm.network :private_network, ip: "192.168.245.11"
   client.vm.hostname = 'ceph-client'
   client.vm.provision "shell", inline: "echo 'nameserver 8.8.8.8' > /etc/resolv.conf; domainname ceph-client.local", privileged: true
-  client.vm.provision "shell", inline: "echo -e '192.168.245.10 ceph-admin\n192.168.245.11 ceph-client\n192.168.245.12 ceph-server-12\n192.168.245.13 ceph-server-13\n192.168.245.14 ceph-server-14' >>/etc/hosts", privileged: true
+  client.vm.provision "shell", inline: "echo -e '192.168.245.10 ceph-admin\n192.168.245.11 ceph-client\n192.168.245.12 ceph-server-12\n192.168.245.13 ceph-server-13\n192.168.245.14 ceph-server-14\n192.168.245.15 ceph-server-15\n192.168.245.16 ceph-server-16' >>/etc/hosts", privileged: true
   client.vm.provision "shell", inline: "useradd ceph && echo 'ceph\nceph' | passwd ceph && adduser ceph sudo && mkdir -p /home/ceph/.ssh && chown -R ceph:ceph /home/ceph", privileged: true
   client.vm.provision "shell", inline: "echo 'ceph ALL = (root) NOPASSWD:ALL' | tee /etc/sudoers.d/ceph", privileged: true 
   client.vm.provision "shell", inline: "chmod 0440 /etc/sudoers.d/ceph && echo 'Defaults:ceph !requiretty' >> /etc/sudoers.d/ceph", privileged: true
+  client.vm.provision "shell", inline: "mkdir -p /var/run/ceph && chown ceph:ceph /var/run/ceph"
  end
  
+ (1..2).each do |i|
+  config.vm.define "ceph-mon-#{i}" do |mon|
+  mon.vm.network :private_network, ip: "192.168.245.#{i+11}"
+  mon.vm.hostname = "ceph-mon-#{i+11}"
+  mon.vm.provision "shell", inline: "echo 'nameserver 8.8.8.8' > /etc/resolv.conf; domainname ceph-mon-#{i+11}.ceph.local"
+  mon.vm.provision "shell", inline: "echo -e '192.168.245.10 ceph-admin\n192.168.245.11 ceph-client\n192.168.245.12 ceph-mon-12\n192.168.245.13 ceph-mon-13\n192.168.245.14 ceph-osd-14\n192.168.245.15 ceph-osd-15\n192.168.245.16 ceph-osd-16' >>/etc/hosts", privileged: true
+  mon.vm.provision "shell", inline: "useradd ceph && echo 'ceph\nceph' | passwd ceph && adduser ceph sudo && mkdir -p /home/ceph/.ssh && chown -R ceph:ceph /home/ceph", privileged: true
+  mon.vm.provision "shell", inline: "echo 'ceph ALL = (root) NOPASSWD:ALL' | tee /etc/sudoers.d/ceph", privileged: true 
+  mon.vm.provision "shell", inline: "chmod 0440 /etc/sudoers.d/ceph && echo 'Defaults:ceph !requiretty' >> /etc/sudoers.d/ceph", privileged: true
+  mon.vm.provision "shell", inline: "mkdir -p /var/run/ceph && chown ceph:ceph /var/run/ceph"
+ end
+ end
  (1..3).each do |i|
-  config.vm.define "ceph-server-#{i}" do |config|
-  config.vm.network :private_network, ip: "192.168.245.#{i+11}"
-  config.vm.hostname = "ceph-server-#{i}"
-  config.vm.provision "shell", inline: "echo 'nameserver 8.8.8.8' > /etc/resolv.conf; domainname ceph-server-#{i}.ceph.local"
-  config.vm.provision "shell", inline: "echo -e '192.168.245.10 ceph-admin\n192.168.245.11 ceph-client\n192.168.245.12 ceph-server-12\n192.168.245.13 ceph-server-13\n192.168.245.14 ceph-server-14' >>/etc/hosts", privileged: true
-  config.vm.provision "shell", inline: "useradd ceph && echo 'ceph\nceph' | passwd ceph && adduser ceph sudo && mkdir -p /home/ceph/.ssh && chown -R ceph:ceph /home/ceph", privileged: true
-  config.vm.provision "shell", inline: "echo 'ceph ALL = (root) NOPASSWD:ALL' | tee /etc/sudoers.d/ceph", privileged: true 
-  config.vm.provision "shell", inline: "chmod 0440 /etc/sudoers.d/ceph && echo 'Defaults:ceph !requiretty' >> /etc/sudoers.d/ceph", privileged: true
+  config.vm.define "ceph-osd-#{i}" do |osd|
+  osd.vm.network :private_network, ip: "192.168.245.#{i+13}"
+  osd.vm.hostname = "ceph-osd-#{i+13}"
+  file_for_disk = ".large_disk#{i+13}.vdi"
+  osd.vm.provider "virtualbox" do |i|
+    unless File.exists?(file_for_disk)
+      i.customize ['createhd', '--filename', file_for_disk, '--size', 80*1024]
+      i.customize ['storageattach', :id, '--storagectl', 'SATAController', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', file_for_disk]
+    end
+  end
+  osd.vm.provision "shell", inline: "echo 'nameserver 8.8.8.8' > /etc/resolv.conf; domainname ceph-osd-#{i+13}.ceph.local"
+  osd.vm.provision "shell", inline: "echo -e '192.168.245.10 ceph-admin\n192.168.245.11 ceph-client\n192.168.245.12 ceph-mon-12\n192.168.245.13 ceph-mon-13\n192.168.245.14 ceph-osd-14\n192.168.245.15 ceph-osd-15\n192.168.245.16 ceph-osd-16' >>/etc/hosts", privileged: true
+  osd.vm.provision "shell", inline: "useradd ceph && echo 'ceph\nceph' | passwd ceph && adduser ceph sudo && mkdir -p /home/ceph/.ssh && chown -R ceph:ceph /home/ceph", privileged: true
+  osd.vm.provision "shell", inline: "echo 'ceph ALL = (root) NOPASSWD:ALL' | tee /etc/sudoers.d/ceph", privileged: true 
+  osd.vm.provision "shell", inline: "chmod 0440 /etc/sudoers.d/ceph && echo 'Defaults:ceph !requiretty' >> /etc/sudoers.d/ceph", privileged: true
+  osd.vm.provision "shell", inline: "mkdir -p /var/run/ceph && chown ceph:ceph /var/run/ceph"
  end
  end
 end
